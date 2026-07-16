@@ -1,0 +1,22 @@
+services:
+  train:
+    build: .
+    image: panel360:latest
+    command: ["python", "scripts/train_autoencoder.py"]
+    volumes:
+      - ./files:/app/files
+      - ./output:/app/output
+
+  forecast:
+    image: panel360:latest
+    command: ["python", "scripts/run_forecast.py"]
+    volumes:
+      - ./files:/app/files
+      - ./output:/app/output
+
+  evaluate:
+    image: panel360:latest
+    command: ["python", "scripts/evaluate_autoencoder.py"]
+    volumes:
+      - ./files:/app/files
+      - ./output:/app/output

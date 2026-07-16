@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Pipeline outputs (generated, not source)
+/output/
+*.keras
+*.joblib
+latent_vectors.csv
+forecasted_latent_vectors.csv
+anomaly_forecast_results.csv
+forecasted_heatmaps/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

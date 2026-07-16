@@ -1,39 +1,78 @@
 # PANEL 360
 
-## Getting Started
+Thermal panel autoencoder, LSTM forecasting, and Isolation-Forest anomaly detection.
 
-To set up and run the project, follow the steps below:
+## Project layout
 
-### Prerequisites
-Ensure you have the required dependencies installed:
+```
+config/config.ini          # default paths + forecast settings (overridable via PANEL360_* env vars)
+src/panel360/
+  data.py                  # binary panel loading, scaling, filename->datetime parsing
+  augmentation.py          # thermal image rotation/flip augmentation
+  timeseries.py            # gap-aware segmentation, resampling, sliding windows, blanking patterns
+  anomaly.py                # Isolation Forest alarm classification
+  models/
+    autoencoder.py          # convolutional autoencoder (CustomAutoencoder, build_autoencoder)
+    forecaster.py            # LSTM Seq2Seq forecaster
+  pipelines/
+    train_autoencoder.py    # trains the autoencoder, extracts latent_vectors.csv
+    forecast.py               # forecasts latent vectors, reconstructs heatmaps, flags anomalies
+    evaluate.py                # reports reconstruction MSE of a trained autoencoder on held-out data
+scripts/                    # thin CLI entry points around the pipelines above
+tests/                      # pytest unit tests for the pure-logic modules above
+files/                      # sample binary panel data (32x32 float32 snapshots)
+```
+
+## Setup (local)
+
+Requires Python 3.10 or 3.11 (TensorFlow 2.15 does not support 3.12+).
+
 ```bash
-pip install tensorflow numpy pandas matplotlib scikit-learn joblib configparser opencv-python
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-### File Structure
-- `config.ini`: Configuration file with paths.
-- `main.py`: Prepares data, trains an autoencoder, and extracts latent vectors.
-- `forecast.py`: Forecasts latent vectors, reconstructs images, and detects anomalies.
-- `data_utils.py`: Utility functions for loading and processing binary data.
-- `autoencoder.py`: Defines the convolutional autoencoder model.
+## Running the pipelines
 
-### Running the Scripts
-
-#### 1. Train Autoencoder
-Run the following command to process data and train the autoencoder:
-```
-python main.py
+```bash
+python scripts/train_autoencoder.py     # or: panel360-train
+python scripts/run_forecast.py          # or: panel360-forecast
+python scripts/evaluate_autoencoder.py  # or: panel360-evaluate
 ```
 
-#### 2. Forecast and Detect Anomalies
-Run the forecasting and anomaly detection script:
-```
-python forecast.py
+Paths and the forecast input window come from [config/config.ini](config/config.ini) and can be
+overridden per-field with environment variables without touching the file:
+`PANEL360_BINARY_FOLDER`, `PANEL360_ACTUAL_NEXT24_BINARY_FOLDER`, `PANEL360_TEST_BINARY_FOLDER`,
+`PANEL360_OUTPUT_FOLDER`, `PANEL360_INPUT_DAYS` (and `PANEL360_CONFIG_PATH` to point at a different
+ini file entirely).
+
+### Outputs (written to `output_folder`)
+- `scaler.joblib`, `convolutional_autoencoder.keras`, `latent_vectors.csv`
+- `forecasted_latent_vectors.csv`, `forecasted_heatmaps/`, `seq2seq_forecast.keras`
+- `anomaly_forecast_results.csv`, `max_temperatures_with_actual_plot.png`
+
+## Tests
+
+```bash
+pytest
 ```
 
-### Outputs
-- `latent_vectors.csv`: Extracted latent vectors.
-- `forecasted_latent_vectors.csv`: Forecasted latent representations.
-- `forecasted_heatmaps/`: Reconstructed forecasted images.
-- `anomaly_forecast_results.csv`: Anomaly detection results.
-- `max_temperatures_with_actual_plot.png`: Temperature trend plot.
+The suite covers data loading/scaling, augmentation, time-series segmentation/windowing,
+anomaly classification, and config loading/validation without needing TensorFlow. Model-shape
+tests in `tests/test_models.py` are skipped automatically if TensorFlow isn't installed
+(e.g. on Python versions it doesn't support).
+
+## Docker
+
+Build once, then run each stage as a one-off job (they share the same image):
+
+```bash
+docker compose build
+docker compose run --rm train
+docker compose run --rm forecast
+docker compose run --rm evaluate
+```
+
+`./files` and `./output` are bind-mounted into the container, so real data can be dropped into
+`files/` on the host and results inspected in `output/` without rebuilding the image. Baseline
+sample data is baked into the image for a quick smoke test if you don't mount over it.
