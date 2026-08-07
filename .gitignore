@@ -23,3 +23,7 @@ forecasted_heatmaps/
 .vscode/
 .idea/
 .DS_Store
+
+# Real sensor captures are not included (confidential source data).
+# See files/README.md for expected format; drop your own .bin files locally.
+/files/*/*.bin

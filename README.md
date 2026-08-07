@@ -62,7 +62,8 @@ src/panel360/
     evaluate.py                # reports reconstruction MSE of a trained autoencoder on held-out data
 scripts/                    # thin CLI entry points around the pipelines above
 tests/                      # pytest unit tests for the pure-logic modules above
-files/                      # sample binary panel data (32x32 float32 snapshots)
+files/                      # expected data layout (32x32 float32 snapshots) — see files/README.md;
+                             # real captures are not included (confidential source data)
 ```
 
 ## Setup (local)
@@ -116,5 +117,5 @@ docker compose run --rm evaluate
 ```
 
 `./files` and `./output` are bind-mounted into the container, so real data can be dropped into
-`files/` on the host and results inspected in `output/` without rebuilding the image. Baseline
-sample data is baked into the image for a quick smoke test if you don't mount over it.
+`files/` on the host and results inspected in `output/` without rebuilding the image. No sample
+data is bundled — see [files/README.md](files/README.md) for the expected format.

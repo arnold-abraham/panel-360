@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir .
 COPY config ./config
 COPY scripts ./scripts
 
-# Baseline sample data; override with a bind mount for real deployments.
+# Directory structure only — no sample data is bundled (see files/README.md).
+# Bind-mount your own data via docker-compose, or add .bin files locally before building.
 COPY files ./files
 
 VOLUME ["/app/output"]
