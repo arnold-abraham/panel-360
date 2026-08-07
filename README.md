@@ -1,6 +1,48 @@
-# PANEL 360
+# PANEL360 – Predictive Maintenance via Thermal Imaging
 
-Thermal panel autoencoder, LSTM forecasting, and Isolation-Forest anomaly detection.
+## Problem
+
+Electrical cabinets develop hotspots before they fail. Manual thermal inspections are
+expensive and infrequent, so early warning signs often get missed between visits.
+
+This project learns what "normal" thermal behavior looks like from historical panel
+images, forecasts the next 24 hours, and automatically flags patterns that deviate from
+the norm — turning periodic manual checks into continuous, automated monitoring.
+
+## How it works
+
+```
+Thermal Images
+      ↓
+Preprocessing              (scaling, gap-aware segmentation, sliding windows)
+      ↓
+Convolutional Autoencoder  (compresses each 32x32 image into a latent vector)
+      ↓
+Latent Representation
+      ↓
+LSTM Seq2Seq               (learns temporal patterns, forecasts future latent vectors)
+      ↓
+Forecasted Latent Vectors
+      ↓
+Decoder                    (reconstructs latent vectors back into heatmaps)
+      ↓
+Forecasted Heatmaps
+      ↓
+Isolation Forest           (flags forecasted/observed vectors as outliers)
+      ↓
+Green / Yellow / Red Alarm
+```
+
+- **Autoencoder** — a CNN encoder/decoder trained to reconstruct each thermal image
+  through a 64-dimensional bottleneck, so the bottleneck (the "latent vector") becomes a
+  compact summary of the panel's thermal state at that hour.
+- **LSTM Seq2Seq** — takes a sequence of past latent vectors (e.g. the last 7 days) and
+  forecasts the next 24 hourly latent vectors.
+- **Decoder** — reuses the autoencoder's decoder half to turn forecasted (and observed)
+  latent vectors back into full heatmaps, so predictions stay visual and interpretable.
+- **Isolation Forest** — two detectors (a looser "yellow" and a stricter "red") fitted on
+  training-period latent vectors classify each hour — observed or forecasted — as
+  Green/Yellow/Red, so anomalies surface without hand-set temperature thresholds.
 
 ## Project layout
 
