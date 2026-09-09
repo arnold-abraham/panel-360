@@ -130,7 +130,9 @@ docker compose run --rm evaluate
 data is bundled — see [files/README.md](files/README.md) for the expected format.
 
 To also push results to InfluxDB, bring up the `influxdb` service and set the same
-`PANEL360_INFLUX_*` vars (a `.env` file next to `docker-compose.yml` works well for this):
+`PANEL360_INFLUX_*` vars (a `.env` file next to `docker-compose.yml` works well for this).
+`PANEL360_INFLUX_PASSWORD` has no default and must be set explicitly — Compose refuses to
+start the service without it:
 
 ```bash
 docker compose up -d influxdb
