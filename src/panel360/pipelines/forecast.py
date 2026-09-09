@@ -198,6 +198,13 @@ def run(config):
     combined_results = combined_results[["datetime", "alarm", "max_temperature", "forecasted"]]
     combined_results.to_csv(os.path.join(output_folder, "anomaly_forecast_results.csv"), index=False)
 
+    if config.influx_enabled:
+        try:
+            from panel360.storage.influx import write_anomaly_results
+            write_anomaly_results(config, combined_results)
+        except Exception:
+            logger.warning("InfluxDB write failed; continuing (CSV already saved).", exc_info=True)
+
     # Compare against ground truth, if available.
     actual_next24_data, _ = load_binary_data(config.actual_next24_binary_folder)
     actual_24_max_temps = max_temperatures(actual_next24_data)
