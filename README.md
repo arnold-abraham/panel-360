@@ -94,6 +94,15 @@ ini file entirely).
 - `forecasted_latent_vectors.csv`, `forecasted_heatmaps/`, `seq2seq_forecast.keras`
 - `anomaly_forecast_results.csv`, `max_temperatures_with_actual_plot.png`
 
+### Optional: InfluxDB
+
+The forecast pipeline can additionally push `anomaly_forecast_results.csv` to InfluxDB as
+one point per hour (measurement `panel_status`, tagged by `forecasted`, fields `alarm` and
+`max_temperature`) — useful for a live Grafana dashboard over the alarm history. The CSV is
+always written regardless; Influx is a best-effort dual write, disabled unless all four env
+vars below are set (install the `influx` extra: `pip install -e ".[influx]"`):
+`PANEL360_INFLUX_URL`, `PANEL360_INFLUX_TOKEN`, `PANEL360_INFLUX_ORG`, `PANEL360_INFLUX_BUCKET`.
+
 ## Tests
 
 ```bash
@@ -119,3 +128,11 @@ docker compose run --rm evaluate
 `./files` and `./output` are bind-mounted into the container, so real data can be dropped into
 `files/` on the host and results inspected in `output/` without rebuilding the image. No sample
 data is bundled — see [files/README.md](files/README.md) for the expected format.
+
+To also push results to InfluxDB, bring up the `influxdb` service and set the same
+`PANEL360_INFLUX_*` vars (a `.env` file next to `docker-compose.yml` works well for this):
+
+```bash
+docker compose up -d influxdb
+docker compose run --rm forecast
+```
