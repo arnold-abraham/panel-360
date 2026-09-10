@@ -13,6 +13,11 @@ services:
     volumes:
       - ./files:/app/files
       - ./output:/app/output
+    environment:
+      PANEL360_INFLUX_URL: ${PANEL360_INFLUX_URL:-}
+      PANEL360_INFLUX_TOKEN: ${PANEL360_INFLUX_TOKEN:-}
+      PANEL360_INFLUX_ORG: ${PANEL360_INFLUX_ORG:-}
+      PANEL360_INFLUX_BUCKET: ${PANEL360_INFLUX_BUCKET:-}
 
   evaluate:
     image: panel360:latest
@@ -20,3 +25,21 @@ services:
     volumes:
       - ./files:/app/files
       - ./output:/app/output
+
+  # Optional: only needed if PANEL360_INFLUX_* is set for the forecast service above.
+  influxdb:
+    image: influxdb:2
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${PANEL360_INFLUX_USERNAME:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${PANEL360_INFLUX_PASSWORD:?Set PANEL360_INFLUX_PASSWORD (8+ chars) — see README, no insecure default is provided}
+      DOCKER_INFLUXDB_INIT_ORG: ${PANEL360_INFLUX_ORG:-panel360}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${PANEL360_INFLUX_BUCKET:-panel-status}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${PANEL360_INFLUX_TOKEN:-}
+
+volumes:
+  influxdb-data:

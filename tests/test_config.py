@@ -49,6 +49,34 @@ def test_load_config_env_override(tmp_path, monkeypatch):
     assert config.binary_folder == "data/binary"
 
 
+def test_load_config_influx_disabled_by_default(tmp_path):
+    config = load_config(write_ini(tmp_path))
+
+    assert config.influx_enabled is False
+
+
+def test_load_config_influx_enabled_when_all_env_vars_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("PANEL360_INFLUX_URL", "http://localhost:8086")
+    monkeypatch.setenv("PANEL360_INFLUX_TOKEN", "secret-token")
+    monkeypatch.setenv("PANEL360_INFLUX_ORG", "panel360")
+    monkeypatch.setenv("PANEL360_INFLUX_BUCKET", "panel-status")
+
+    config = load_config(write_ini(tmp_path))
+
+    assert config.influx_enabled is True
+    assert config.influx_url == "http://localhost:8086"
+    assert config.influx_bucket == "panel-status"
+
+
+def test_load_config_influx_disabled_when_partially_set(tmp_path, monkeypatch):
+    monkeypatch.setenv("PANEL360_INFLUX_URL", "http://localhost:8086")
+    monkeypatch.setenv("PANEL360_INFLUX_TOKEN", "secret-token")
+
+    config = load_config(write_ini(tmp_path))
+
+    assert config.influx_enabled is False
+
+
 def test_require_dir_raises_for_missing_path(tmp_path):
     with pytest.raises(FileNotFoundError):
         require_dir(str(tmp_path / "missing"), "some folder")

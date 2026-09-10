@@ -20,6 +20,14 @@ _ENV_OVERRIDES = {
     "input_days": "PANEL360_INPUT_DAYS",
 }
 
+# Optional InfluxDB settings: env-var only, no config.ini equivalent — unset means disabled.
+_INFLUX_ENV_VARS = {
+    "influx_url": "PANEL360_INFLUX_URL",
+    "influx_token": "PANEL360_INFLUX_TOKEN",
+    "influx_org": "PANEL360_INFLUX_ORG",
+    "influx_bucket": "PANEL360_INFLUX_BUCKET",
+}
+
 
 @dataclass
 class Panel360Config:
@@ -28,6 +36,14 @@ class Panel360Config:
     test_binary_folder: str
     output_folder: str
     input_days: int
+    influx_url: str = None
+    influx_token: str = None
+    influx_org: str = None
+    influx_bucket: str = None
+
+    @property
+    def influx_enabled(self):
+        return all((self.influx_url, self.influx_token, self.influx_org, self.influx_bucket))
 
 
 def load_config(config_path=None):
@@ -51,6 +67,10 @@ def load_config(config_path=None):
             values[field] = os.environ[env_var]
 
     values["input_days"] = int(values["input_days"])
+
+    for field, env_var in _INFLUX_ENV_VARS.items():
+        if env_var in os.environ:
+            values[field] = os.environ[env_var]
 
     return Panel360Config(**values)
 
