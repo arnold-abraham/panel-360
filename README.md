@@ -2,12 +2,10 @@
 
 ## Problem
 
-Electrical cabinets develop hotspots before they fail. Manual thermal inspections are
-expensive and infrequent, so early warning signs often get missed between visits.
-
-This project learns what "normal" thermal behavior looks like from historical panel
-images, forecasts the next 24 hours, and automatically flags patterns that deviate from
-the norm — turning periodic manual checks into continuous, automated monitoring.
+Electrical cabinets develop hotspots before they fail, but manual thermal inspections are
+infrequent and easy to miss. This project learns normal thermal behavior from historical
+panel images, forecasts the next 24 hours, and flags anomalies — turning periodic checks
+into continuous, automated monitoring.
 
 ## How it works
 
@@ -33,16 +31,12 @@ Isolation Forest           (flags forecasted/observed vectors as outliers)
 Green / Yellow / Red Alarm
 ```
 
-- **Autoencoder** — a CNN encoder/decoder trained to reconstruct each thermal image
-  through a 64-dimensional bottleneck, so the bottleneck (the "latent vector") becomes a
-  compact summary of the panel's thermal state at that hour.
-- **LSTM Seq2Seq** — takes a sequence of past latent vectors (e.g. the last 7 days) and
-  forecasts the next 24 hourly latent vectors.
-- **Decoder** — reuses the autoencoder's decoder half to turn forecasted (and observed)
-  latent vectors back into full heatmaps, so predictions stay visual and interpretable.
-- **Isolation Forest** — two detectors (a looser "yellow" and a stricter "red") fitted on
-  training-period latent vectors classify each hour — observed or forecasted — as
-  Green/Yellow/Red, so anomalies surface without hand-set temperature thresholds.
+- **Autoencoder** — CNN encoder/decoder trained to reconstruct each image through a
+  64-dimensional bottleneck, the "latent vector" summarizing the panel's thermal state.
+- **LSTM Seq2Seq** — forecasts the next 24 hourly latent vectors from a sequence of past ones.
+- **Decoder** — reuses the autoencoder's decoder to turn latent vectors back into heatmaps.
+- **Isolation Forest** — two detectors (looser "yellow", stricter "red") trained on
+  latent vectors classify each hour as Green/Yellow/Red without hand-set thresholds.
 
 ## Project layout
 
@@ -52,21 +46,22 @@ src/panel360/
   data.py                  # binary panel loading, scaling, filename->datetime parsing
   augmentation.py          # thermal image rotation/flip augmentation
   timeseries.py            # gap-aware segmentation, resampling, sliding windows, blanking patterns
-  anomaly.py                # Isolation Forest alarm classification
+  anomaly.py               # Isolation Forest alarm classification
+  storage/influx.py        # optional InfluxDB writer for anomaly results
   models/
-    autoencoder.py          # convolutional autoencoder (CustomAutoencoder, build_autoencoder)
-    forecaster.py            # LSTM Seq2Seq forecaster
+    autoencoder.py         # convolutional autoencoder (CustomAutoencoder, build_autoencoder)
+    forecaster.py           # LSTM Seq2Seq forecaster
   pipelines/
-    train_autoencoder.py    # trains the autoencoder, extracts latent_vectors.csv
-    forecast.py               # forecasts latent vectors, reconstructs heatmaps, flags anomalies
-    evaluate.py                # reports reconstruction MSE of a trained autoencoder on held-out data
+    train_autoencoder.py   # trains the autoencoder, extracts latent_vectors.csv
+    forecast.py             # forecasts latent vectors, reconstructs heatmaps, flags anomalies
+    evaluate.py              # reports reconstruction MSE of a trained autoencoder on held-out data
 scripts/                    # thin CLI entry points around the pipelines above
 tests/                      # pytest unit tests for the pure-logic modules above
 files/                      # expected data layout (32x32 float32 snapshots) — see files/README.md;
                              # real captures are not included (confidential source data)
 ```
 
-## Setup (local)
+## Setup
 
 Requires Python 3.10 or 3.11 (TensorFlow 2.15 does not support 3.12+).
 
@@ -83,25 +78,23 @@ python scripts/run_forecast.py          # or: panel360-forecast
 python scripts/evaluate_autoencoder.py  # or: panel360-evaluate
 ```
 
-Paths and the forecast input window come from [config/config.ini](config/config.ini) and can be
-overridden per-field with environment variables without touching the file:
-`PANEL360_BINARY_FOLDER`, `PANEL360_ACTUAL_NEXT24_BINARY_FOLDER`, `PANEL360_TEST_BINARY_FOLDER`,
-`PANEL360_OUTPUT_FOLDER`, `PANEL360_INPUT_DAYS` (and `PANEL360_CONFIG_PATH` to point at a different
-ini file entirely).
+Paths and the forecast input window come from [config/config.ini](config/config.ini), overridable
+per-field via env vars: `PANEL360_BINARY_FOLDER`, `PANEL360_ACTUAL_NEXT24_BINARY_FOLDER`,
+`PANEL360_TEST_BINARY_FOLDER`, `PANEL360_OUTPUT_FOLDER`, `PANEL360_INPUT_DAYS`
+(and `PANEL360_CONFIG_PATH` for a different ini file entirely).
 
 ### Outputs (written to `output_folder`)
 - `scaler.joblib`, `convolutional_autoencoder.keras`, `latent_vectors.csv`
 - `forecasted_latent_vectors.csv`, `forecasted_heatmaps/`, `seq2seq_forecast.keras`
 - `anomaly_forecast_results.csv`, `max_temperatures_with_actual_plot.png`
 
-### Optional: InfluxDB
+### InfluxDB
 
-The forecast pipeline can additionally push `anomaly_forecast_results.csv` to InfluxDB as
-one point per hour (measurement `panel_status`, tagged by `forecasted`, fields `alarm` and
-`max_temperature`) — useful for a live Grafana dashboard over the alarm history. The CSV is
-always written regardless; Influx is a best-effort dual write, disabled unless all four env
-vars below are set (install the `influx` extra: `pip install -e ".[influx]"`):
-`PANEL360_INFLUX_URL`, `PANEL360_INFLUX_TOKEN`, `PANEL360_INFLUX_ORG`, `PANEL360_INFLUX_BUCKET`.
+The forecast pipeline also writes `anomaly_forecast_results.csv` to InfluxDB — one point per
+hour (measurement `panel_status`, tagged by `forecasted`) — for a live dashboard over the alarm
+history. The CSV is always written regardless; this is enabled only when all four env vars are
+set (install the `influx` extra: `pip install -e ".[influx]"`): `PANEL360_INFLUX_URL`,
+`PANEL360_INFLUX_TOKEN`, `PANEL360_INFLUX_ORG`, `PANEL360_INFLUX_BUCKET`.
 
 ## Tests
 
@@ -109,10 +102,9 @@ vars below are set (install the `influx` extra: `pip install -e ".[influx]"`):
 pytest
 ```
 
-The suite covers data loading/scaling, augmentation, time-series segmentation/windowing,
-anomaly classification, and config loading/validation without needing TensorFlow. Model-shape
-tests in `tests/test_models.py` are skipped automatically if TensorFlow isn't installed
-(e.g. on Python versions it doesn't support).
+Covers data loading, augmentation, time-series windowing, anomaly classification, and config —
+no TensorFlow required. Model-shape tests in `tests/test_models.py` skip automatically if
+TensorFlow isn't installed.
 
 ## Docker
 
@@ -125,14 +117,13 @@ docker compose run --rm forecast
 docker compose run --rm evaluate
 ```
 
-`./files` and `./output` are bind-mounted into the container, so real data can be dropped into
-`files/` on the host and results inspected in `output/` without rebuilding the image. No sample
-data is bundled — see [files/README.md](files/README.md) for the expected format.
+`./files` and `./output` are bind-mounted, so real data can be dropped into `files/` on the host
+and results inspected in `output/` without rebuilding. No sample data is bundled — see
+[files/README.md](files/README.md) for the expected format.
 
-To also push results to InfluxDB, bring up the `influxdb` service and set the same
-`PANEL360_INFLUX_*` vars (a `.env` file next to `docker-compose.yml` works well for this).
-`PANEL360_INFLUX_PASSWORD` has no default and must be set explicitly — Compose refuses to
-start the service without it:
+To also push results to InfluxDB, bring up the `influxdb` service with the same `PANEL360_INFLUX_*`
+vars set (a `.env` file next to `docker-compose.yml` works well). `PANEL360_INFLUX_PASSWORD` has no
+default — Compose refuses to start the service without it:
 
 ```bash
 docker compose up -d influxdb
