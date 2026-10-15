@@ -7,36 +7,36 @@ infrequent and easy to miss. This project learns normal thermal behavior from hi
 panel images, forecasts the next 24 hours, and flags anomalies — turning periodic checks
 into continuous, automated monitoring.
 
-## How it works
+## Architecture
 
-```
-Thermal Images
-      ↓
-Preprocessing              (scaling, gap-aware segmentation, sliding windows)
-      ↓
-Convolutional Autoencoder  (compresses each 32x32 image into a latent vector)
-      ↓
-Latent Representation
-      ↓
-LSTM Seq2Seq               (learns temporal patterns, forecasts future latent vectors)
-      ↓
-Forecasted Latent Vectors
-      ↓
-Decoder                    (reconstructs latent vectors back into heatmaps)
-      ↓
-Forecasted Heatmaps
-      ↓
-Isolation Forest           (flags forecasted/observed vectors as outliers)
-      ↓
-Green / Yellow / Red Alarm
+```mermaid
+flowchart LR
+    img[("Thermal Images<br/>32×32")]
+    prep["Preprocessing<br/>scaling · segmentation · windowing"]
+    enc["CNN Autoencoder<br/>(Encoder)"]
+    latent(("Latent Space<br/>64-dim"))
+    seq["LSTM Seq2Seq<br/>7-day window (default) → 24h forecast"]
+    flatent(("Forecasted<br/>Latent Vectors"))
+    dec["CNN Autoencoder<br/>(Decoder)"]
+    heat[("Forecasted<br/>Heatmaps")]
+    iso["Isolation Forest<br/>yellow / red detectors"]
+    alarm{{"Green / Yellow / Red<br/>Alarm"}}
+
+    img --> prep --> enc --> latent
+    latent --> seq --> flatent --> dec --> heat
+    latent --> iso
+    flatent --> iso
+    iso --> alarm
 ```
 
-- **Autoencoder** — CNN encoder/decoder trained to reconstruct each image through a
-  64-dimensional bottleneck, the "latent vector" summarizing the panel's thermal state.
-- **LSTM Seq2Seq** — forecasts the next 24 hourly latent vectors from a sequence of past ones.
-- **Decoder** — reuses the autoencoder's decoder to turn latent vectors back into heatmaps.
-- **Isolation Forest** — two detectors (looser "yellow", stricter "red") trained on
-  latent vectors classify each hour as Green/Yellow/Red without hand-set thresholds.
+- **CNN Autoencoder** — encoder compresses each image through a 64-dimensional bottleneck
+  (the latent vector); the same decoder reconstructs heatmaps from latent vectors, observed
+  or forecasted.
+- **LSTM Seq2Seq** — forecasts the next 24 hourly latent vectors from the last `input_days`
+  days of them (7 by default, configurable).
+- **Isolation Forest** — two detectors (looser "yellow", stricter "red") trained on latent
+  vectors classify each hour, observed or forecasted, as Green/Yellow/Red without hand-set
+  temperature thresholds.
 
 ## Project layout
 
@@ -72,6 +72,9 @@ pip install -e ".[dev]"
 
 ## Running the pipelines
 
+Run `train_autoencoder` first — `forecast` and `evaluate` both read its model artifacts
+(`scaler.joblib`, `convolutional_autoencoder.keras`) back out of `output_folder`.
+
 ```bash
 python scripts/train_autoencoder.py     # or: panel360-train
 python scripts/run_forecast.py          # or: panel360-forecast
@@ -84,9 +87,11 @@ per-field via env vars: `PANEL360_BINARY_FOLDER`, `PANEL360_ACTUAL_NEXT24_BINARY
 (and `PANEL360_CONFIG_PATH` for a different ini file entirely).
 
 ### Outputs (written to `output_folder`)
-- `scaler.joblib`, `convolutional_autoencoder.keras`, `latent_vectors.csv`
-- `forecasted_latent_vectors.csv`, `forecasted_heatmaps/`, `seq2seq_forecast.keras`
-- `anomaly_forecast_results.csv`, `max_temperatures_with_actual_plot.png`
+- `train_autoencoder`: `scaler.joblib`, `convolutional_autoencoder.keras`, `latent_vectors.csv`,
+  `loss_curves.png`, `reconstructed_images.png`
+- `forecast`: `forecasted_latent_vectors.csv`, `seq2seq_forecast.keras`, `seq2seq_loss_curves.png`,
+  `forecasted_heatmaps/`, `anomaly_forecast_results.csv`, `max_temperatures_with_actual_plot.png`
+- `evaluate`: `evaluation_reconstruction.png`
 
 ### InfluxDB
 
